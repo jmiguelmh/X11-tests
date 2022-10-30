@@ -1,6 +1,7 @@
 #include <X11/Xlib.h>
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
@@ -8,6 +9,9 @@ using namespace std;
 #define X_KEY 53
 #define Y_KEY 29
 #define Z_KEY 52
+#define SPACE_KEY 65
+
+int height, width;
 
 Display *d;
 Window w;
@@ -15,6 +19,8 @@ XEvent e;
 GC gc;
 int s;
 bool exitProgram;
+
+double rotationSpeed;
 
 struct point {
     double x;
@@ -69,9 +75,13 @@ void printPoints() {
     for(int i = 0; i < points.size(); i++) {
         cout << "X: " << points[i].x << "\tY: " << points[i].y << "\tZ: " << points[i].z << endl;
     }
+    cout << endl;
 }
 
 void init() {
+    height = 640;
+    width = 480;
+    rotationSpeed = M_PI / 180;
     setPoints();
     setEdges();
     camera = point(0, 0, -10);
@@ -81,7 +91,7 @@ void init() {
     exitProgram = false;
 
     s = DefaultScreen(d);
-    w = XCreateSimpleWindow(d, RootWindow(d, s), 100, 100, 640, 480, 1, BlackPixel(d, s), WhitePixel(d, s));
+    w = XCreateSimpleWindow(d, RootWindow(d, s), 100, 100, height, width, 1, BlackPixel(d, s), WhitePixel(d, s));
     XSelectInput(d, w, ExposureMask | KeyPressMask);
     XMapWindow(d, w);
     XStoreName(d, w, "X11 tests");
@@ -95,34 +105,66 @@ void clear() {
 void draw() {
     for (int i = 0; i < edges.size(); i++) {
         XDrawLine(d, w, gc,
-            (abs(camera.z - zProyectionPlane) * edges[i].first.x) / (camera.z + edges[i].first.z) + 320,
-            (abs(camera.z - zProyectionPlane) * edges[i].first.y) / (camera.z + edges[i].first.z) + 240,
-            (abs(camera.z - zProyectionPlane) * edges[i].second.x) / (camera.z + edges[i].second.z) + 320,
-            (abs(camera.z - zProyectionPlane) * edges[i].second.y) / (camera.z + edges[i].second.z) + 240
+            (abs(camera.z - zProyectionPlane) * edges[i].first.x) / (camera.z + edges[i].first.z) + height / 2,
+            (abs(camera.z - zProyectionPlane) * edges[i].first.y) / (camera.z + edges[i].first.z) + width / 2,
+            (abs(camera.z - zProyectionPlane) * edges[i].second.x) / (camera.z + edges[i].second.z) + height / 2,
+            (abs(camera.z - zProyectionPlane) * edges[i].second.y) / (camera.z + edges[i].second.z) + width / 2
         );
-        /*
-        cout << edges.size() << endl;
-        cout << "X1: " << edges[i].first.x << " Y1: " << edges[i].first.y << " Z1: " << edges[i].first.z << " X2: " << edges[i].second.x << " Y2: " << edges[i].second.y << " Z2: " << edges[i].second.z << endl;
-        */
     }
 }
 
 void rotateX() {
+    for (int i = 0; i < points.size(); i++) {
+        points[i].y = (points[i].y * cos(rotationSpeed)) + (points[i].z * sin(rotationSpeed));
+        points[i].z = (-points[i].y * sin(rotationSpeed) + (points[i].z * cos(rotationSpeed)));
+
+        double length = sqrt(points[i].x * points[i].x + points[i].y * points[i].y + points[i].z * points[i].z);
+        double scaleBy = sqrt(3) / length;
+
+        points[i].y = points[i].y * scaleBy;
+        points[i].z = points[i].z * scaleBy;
+    }
     
     edges.clear();
     setEdges();
 }
 
 void rotateY() {
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x = (points[i].x * cos(rotationSpeed)) + (points[i].z * sin(rotationSpeed));
+        points[i].z = (-points[i].x * sin(rotationSpeed) + (points[i].z * cos(rotationSpeed)));
+
+        double length = sqrt(points[i].x * points[i].x + points[i].y * points[i].y + points[i].z * points[i].z);
+        double scaleBy = sqrt(3) / length;
+
+        points[i].x = points[i].x * scaleBy;
+        points[i].z = points[i].z * scaleBy;
+    }
     
     edges.clear();
     setEdges();
 }
 
 void rotateZ() {
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x = (points[i].x * cos(rotationSpeed)) + (-points[i].y * sin(rotationSpeed));
+        points[i].y = (points[i].x * sin(rotationSpeed) + (points[i].y * cos(rotationSpeed)));
 
+        double length = sqrt(points[i].x * points[i].x + points[i].y * points[i].y + points[i].z * points[i].z);
+        double scaleBy = sqrt(3) / length;
+
+        points[i].x = points[i].x * scaleBy;
+        points[i].y = points[i].y * scaleBy;
+    }
+    
     edges.clear();
     setEdges();
+}
+
+void update() {
+    rotateX();
+    rotateY();
+    rotateZ();
 }
 
 int main(void)
@@ -151,6 +193,9 @@ int main(void)
                 case Z_KEY:
                     rotateZ();
                     break;
+                
+                case SPACE_KEY:
+                    update();
             }
 
             printPoints();
